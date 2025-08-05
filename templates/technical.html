@@ -1,0 +1,82 @@
+<!-- <!DOCTYPE html>
+<html>
+<head>
+    <title>Technical Indicators</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        .note {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-left: 4px solid #007bff;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h2>Technical Analysis for {{ symbol }}</h2>
+
+    {% for name, result in charts.items() %}
+        <h3>{{ name }}</h3>
+
+        {% if result is string %}
+            <div>{{ result | safe }}</div>
+        {% else %}
+            {% if result.chart %}
+                <div>{{ result.chart | safe }}</div>
+            {% endif %}
+            {% if result.messages %}
+                <h4>Strategy Notes:</h4>
+                {% for msg in result.messages %}
+                    <div class="note">{{ msg | safe }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endif %}
+
+        <hr>
+    {% endfor %}
+    
+</body>
+</html> -->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Technical Indicators</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <style>
+    .note {
+      background-color: #f8f9fa;
+      padding: 10px;
+      border-left: 4px solid #007bff;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <h2>Technical Analysis for {{ symbol }}</h2>
+
+  {% for name, result in charts.items() %}
+    <h3>{{ name }}</h3>
+
+    {% if result is string %}
+      <div>{{ result | safe }}</div>
+    {% else %}
+      {% if result.candlestick_chart %}
+        <div>{{ result.candlestick_chart | safe }}</div>
+      {% endif %}
+      {% if result.macd_chart %}
+        <div>{{ result.macd_chart | safe }}</div>
+      {% endif %}
+      {% if result.chart %}
+        <div>{{ result.chart | safe }}</div>
+      {% endif %}
+      {% if result.messages %}
+        <h4>Strategy Notes:</h4>
+        {% for msg in result.messages %}
+          <div class="note">{{ msg | safe }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endif %}
+    <hr>
+  {% endfor %}
+</body>
+</html>

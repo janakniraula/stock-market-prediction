@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error - Stock Predictor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .error-container {
+            max-width: 600px;
+            margin: 50px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        .error-icon {
+            font-size: 48px;
+            color: #e74c3c;
+            margin-bottom: 20px;
+        }
+        .error-title {
+            color: #e74c3c;
+            font-size: 24px;
+            margin-bottom: 15px;
+        }
+        .error-message {
+            color: #666;
+            font-size: 16px;
+            line-height: 1.5;
+            margin-bottom: 30px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #3498db;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        .btn:hover {
+            background-color: #2980b9;
+        }
+        .troubleshooting {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin-top: 20px;
+            text-align: left;
+        }
+        .troubleshooting h3 {
+            color: #333;
+            margin-top: 0;
+        }
+        .troubleshooting ul {
+            color: #666;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <div class="error-icon">⚠️</div>
+        <h1 class="error-title">Oops! Something went wrong</h1>
+        
+        <div class="error-message">
+            {{ error or "An unexpected error occurred. Please try again." }}
+        </div>
+        
+        <a href="/" class="btn">Go Back Home</a>
+        
+        <div class="troubleshooting">
+            <h3>Troubleshooting Tips:</h3>
+            <ul>
+                <li><strong>File Not Found:</strong> Make sure the CSV file exists in the <code>data/</code> folder</li>
+                <li><strong>Invalid Data:</strong> Check that your CSV has the required columns: Date, Open, High, Low, Close</li>
+                <li><strong>Empty File:</strong> Ensure your CSV file contains actual data rows</li>
+                <li><strong>Date Format:</strong> Dates should be in a recognizable format (YYYY-MM-DD recommended)</li>
+                <li><strong>Minimum Data:</strong> You need at least 30 rows of data for analysis</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

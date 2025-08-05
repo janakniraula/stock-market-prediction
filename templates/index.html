@@ -1,0 +1,96 @@
+<!doctype html>
+<html>
+<head>
+  <title>Stock Analysis</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+
+    label {
+      display: block;
+      margin-top: 10px;
+    }
+
+    input[type="submit"] {
+      margin-top: 15px;
+      padding: 8px 16px;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Stock Analysis Form</h2>
+
+  <form id="mainForm" method="POST">
+    <!-- Stock symbol selection -->
+    <label for="symbol">Select Stock:</label>
+    <select name="symbol" required>
+      {% for symbol in symbols %}
+        <option value="{{ symbol }}">{{ symbol }}</option>
+      {% endfor %}
+    </select>
+
+    <!-- Date range -->
+    <label for="start_date">Start Date:</label>
+    <input type="date" name="start_date" value="{{ default_start }}" required>
+
+    <label for="end_date">End Date:</label>
+    <input type="date" name="end_date" value="{{ today }}" required>
+
+    <!-- Option dropdown -->
+    <label for="option">Select Analysis Type:</label>
+    <select name="option" id="option" required onchange="updateAction()">
+      <option value="">-- Select --</option>
+      <option value="technical">Technical Indicator</option>
+      <option value="strategy">Strategy Support/Resistance</option>
+      <option value="predict">GAN Prediction</option>
+    </select>
+
+    <!-- Term slider for technical analysis -->
+    <div id="termBlock" style="display:none;">
+      <label for="term">SMA/EMA Period (Short-Term):</label>
+      <input type="range" name="term" min="3" max="60" value="10" oninput="this.nextElementSibling.value = this.value">
+      <output>10</output>
+
+      <!-- Indicators -->
+      <label>Select Indicators:</label>
+        <input type="checkbox" name="indicators" value="SMA"> SMA<br>
+        <input type="checkbox" name="indicators" value="EMA"> EMA<br>
+        <input type="checkbox" name="indicators" value="MACD"> MACD<br>
+        <input type="checkbox" name="indicators" value="RSI"> RSI<br>
+    </div>
+
+    <br>
+    <input type="submit" value="Run Analysis">
+  </form>
+
+  <script>
+    const form = document.getElementById('mainForm');
+    const optionSelect = document.getElementById('option');
+    const termBlock = document.getElementById('termBlock');
+
+    function updateAction() {
+      const selected = optionSelect.value;
+      form.action = '/' + selected;
+
+      // Only show term + indicators for technical
+      if (selected === 'technical') {
+        termBlock.style.display = 'block';
+      } else {
+        termBlock.style.display = 'none';
+      }
+    }
+
+    // Prevent form from submitting without a valid action
+    form.addEventListener('submit', function (e) {
+      if (!form.action || form.action === '/') {
+        e.preventDefault();
+        alert('Please select a valid analysis type.');
+      }
+    });
+  </script>
+
+</body>
+</html>

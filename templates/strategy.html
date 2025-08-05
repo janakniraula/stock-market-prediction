@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Strategy - {{ symbol }}</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <style>
+    body {
+      font-family: Arial;
+      padding: 20px;
+    }
+    .note {
+      margin: 10px 0;
+      padding: 10px;
+      border-left: 4px solid #007bff;
+      background-color: #f0f8ff;
+    }
+  </style>
+</head>
+<body>
+  <h2>Strategy Recommendation for {{ symbol }}</h2>
+
+  <div>
+    {{ chart | safe }}
+  </div>
+
+  <h3>Strategy Notes</h3>
+  {% for note in notes %}
+    <div class="note">{{ note | safe }}</div>
+  {% endfor %}
+
+  <br><a href="/">← Back to Dashboard</a>
+</body>
+</html>
