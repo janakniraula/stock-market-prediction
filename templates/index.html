@@ -1,70 +1,145 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <title>Stock Analysis</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📈 Stock Analysis Form</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
       padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: auto;
+      background-color: white;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    }
+
+    h2 {
+      color: #2c3e50;
+      text-align: center;
+      font-size: 2em;
+      margin-bottom: 30px;
     }
 
     label {
       display: block;
+      margin-top: 15px;
+      font-weight: 500;
+      color: #34495e;
+    }
+
+    select, input[type="date"], input[type="range"] {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 1em;
+    }
+
+    input[type="checkbox"] {
+      margin-right: 8px;
+    }
+
+    .indicator-group {
       margin-top: 10px;
     }
 
+    .indicator-group label {
+      display: inline-block;
+      margin-right: 15px;
+    }
+
     input[type="submit"] {
-      margin-top: 15px;
-      padding: 8px 16px;
+      background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 25px;
+      font-size: 1em;
+      margin-top: 30px;
+      cursor: pointer;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      display: block;
+      width: 100%;
+    }
+
+    input[type="submit"]:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    #termBlock {
+      margin-top: 20px;
+      background-color: #f7f9fc;
+      padding: 15px;
+      border-radius: 10px;
+      border-left: 5px solid #3498db;
+    }
+
+    output {
+      display: inline-block;
+      margin-left: 10px;
+      font-weight: bold;
+      color: #2c3e50;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        padding: 20px;
+      }
     }
   </style>
 </head>
 <body>
+  <div class="container">
+    <h2>📋 Stock Analysis Form</h2>
+    <form id="mainForm" method="POST">
+      <label for="symbol">Select Stock:</label>
+      <select name="symbol" required>
+        {% for symbol in symbols %}
+          <option value="{{ symbol }}">{{ symbol }}</option>
+        {% endfor %}
+      </select>
 
-  <h2>Stock Analysis Form</h2>
+      <label for="start_date">Start Date:</label>
+      <input type="date" name="start_date" value="{{ default_start }}" required>
 
-  <form id="mainForm" method="POST">
-    <!-- Stock symbol selection -->
-    <label for="symbol">Select Stock:</label>
-    <select name="symbol" required>
-      {% for symbol in symbols %}
-        <option value="{{ symbol }}">{{ symbol }}</option>
-      {% endfor %}
-    </select>
+      <label for="end_date">End Date:</label>
+      <input type="date" name="end_date" value="{{ today }}" required>
 
-    <!-- Date range -->
-    <label for="start_date">Start Date:</label>
-    <input type="date" name="start_date" value="{{ default_start }}" required>
+      <label for="option">Select Analysis Type:</label>
+      <select name="option" id="option" required onchange="updateAction()">
+        <option value="">-- Select --</option>
+        <option value="technical">Technical Indicator</option>
+        <option value="strategy">Strategy Support/Resistance</option>
+        <option value="predict">GAN Prediction</option>
+      </select>
 
-    <label for="end_date">End Date:</label>
-    <input type="date" name="end_date" value="{{ today }}" required>
+      <div id="termBlock" style="display:none;">
+        <label for="term">SMA/EMA Period (Short-Term):</label>
+        <input type="range" name="term" min="3" max="60" value="10" oninput="this.nextElementSibling.value = this.value">
+        <output>10</output>
 
-    <!-- Option dropdown -->
-    <label for="option">Select Analysis Type:</label>
-    <select name="option" id="option" required onchange="updateAction()">
-      <option value="">-- Select --</option>
-      <option value="technical">Technical Indicator</option>
-      <option value="strategy">Strategy Support/Resistance</option>
-      <option value="predict">GAN Prediction</option>
-    </select>
+        <div class="indicator-group">
+          <label><input type="checkbox" name="indicators" value="SMA"> SMA</label>
+          <label><input type="checkbox" name="indicators" value="EMA"> EMA</label>
+          <label><input type="checkbox" name="indicators" value="MACD"> MACD</label>
+          <label><input type="checkbox" name="indicators" value="RSI"> RSI</label>
+        </div>
+      </div>
 
-    <!-- Term slider for technical analysis -->
-    <div id="termBlock" style="display:none;">
-      <label for="term">SMA/EMA Period (Short-Term):</label>
-      <input type="range" name="term" min="3" max="60" value="10" oninput="this.nextElementSibling.value = this.value">
-      <output>10</output>
-
-      <!-- Indicators -->
-      <label>Select Indicators:</label>
-        <input type="checkbox" name="indicators" value="SMA"> SMA<br>
-        <input type="checkbox" name="indicators" value="EMA"> EMA<br>
-        <input type="checkbox" name="indicators" value="MACD"> MACD<br>
-        <input type="checkbox" name="indicators" value="RSI"> RSI<br>
-    </div>
-
-    <br>
-    <input type="submit" value="Run Analysis">
-  </form>
+      <input type="submit" value="Run Analysis">
+    </form>
+  </div>
 
   <script>
     const form = document.getElementById('mainForm');
@@ -83,7 +158,6 @@
       }
     }
 
-    // Prevent form from submitting without a valid action
     form.addEventListener('submit', function (e) {
       if (!form.action || form.action === '/') {
         e.preventDefault();
@@ -91,6 +165,5 @@
       }
     });
   </script>
-
 </body>
 </html>
