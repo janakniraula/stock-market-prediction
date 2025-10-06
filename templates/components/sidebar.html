@@ -1,0 +1,53 @@
+<!-- templates/components/sidebar.html -->
+<div class="sidebar">
+  <h2>📋 Stock Analysis</h2>
+  <form id="mainForm" method="POST">
+    <label for="symbol">Select Stock:</label>
+    <select name="symbol" required>
+      {% for symbol in sidebar_data.symbols %}
+        <option value="{{ symbol }}">{{ symbol }}</option>
+      {% endfor %}
+    </select>
+
+    <label for="start_date">Start Date:</label>
+    <input type="date" name="start_date" value="{{ sidebar_data.default_start }}" required>
+
+    <label for="end_date">End Date:</label>
+    <input type="date" name="end_date" value="{{ sidebar_data.today }}" required>
+
+    <label for="option">Select Analysis Type:</label>
+    <select name="option" id="option" required onchange="updateAction()">
+      <option value="">-- Select --</option>
+      <option value="technical">Technical Indicator</option>
+      <option value="strategy">Strategy Support/Resistance</option>
+      <option value="predict">GAN Prediction</option>
+    </select>
+
+    <div id="termBlock" style="display:none;">
+      <label for="term">SMA/EMA Period (Short-Term):</label>
+      <input type="range" name="term" min="3" max="60" value="10" oninput="this.nextElementSibling.value = this.value">
+      <output>10</output>
+
+      <div class="indicator-group">
+        <label><input type="checkbox" name="indicators" value="SMA"> SMA</label>
+        <label><input type="checkbox" name="indicators" value="EMA"> EMA</label>
+        <label><input type="checkbox" name="indicators" value="MACD"> MACD</label>
+        <label><input type="checkbox" name="indicators" value="RSI"> RSI</label>
+      </div>
+    </div>
+
+    <button type="submit" class="btn" id="submitBtn">
+      <span class="btn-text">Run Analysis</span>
+      <div class="spinner"></div>
+    </button>
+  </form>
+
+  <!-- Optional: Add navigation links for result pages -->
+  {% if request.endpoint != 'index' %}
+  <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.3);">
+    <a href="/" class="back-btn" style="display: block; text-align: center;">
+      ← New Analysis
+    </a>
+  </div>
+  {% endif %}
+</div>

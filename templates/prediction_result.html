@@ -1,0 +1,238 @@
+<!-- templates/prediction_result.html -->
+{% extends "base.html" %}
+
+{% block title %}Prediction Result - {{ symbol }}{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+
+.container {
+  max-width: 100%;
+  background-color: white;
+  padding: 30px;
+  border-radius: 15px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+h1 {
+  color: #2c3e50;
+  text-align: center;
+  margin-bottom: 30px;
+  font-size: 2.5em;
+  font-weight: 300;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  margin-bottom: 40px;
+}
+
+.metric-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 25px;
+  border-radius: 15px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  text-align: center;
+  transition: transform 0.3s ease;
+}
+
+.metric-card:hover {
+  transform: translateY(-5px);
+}
+
+.metric-card h3 {
+  margin: 0 0 15px 0;
+  font-size: 16px;
+  font-weight: 300;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  opacity: 0.9;
+}
+
+.metric-card span {
+  font-size: 36px;
+  font-weight: bold;
+  display: block;
+}
+
+.chart-section {
+  margin-bottom: 50px;
+  background-color: #fafafa;
+  padding: 25px;
+  border-radius: 15px;
+  border-left: 5px solid #3498db;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+}
+
+.chart-section h2 {
+  color: #2c3e50;
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-size: 1.8em;
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chart {
+  background-color: white;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}
+
+.process-flow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 30px 0;
+  padding: 20px;
+  background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%);
+  border-radius: 10px;
+  color: white;
+}
+
+.process-step {
+  text-align: center;
+  flex: 1;
+}
+
+.process-arrow {
+  font-size: 24px;
+  margin: 0 10px;
+}
+
+.info-banner {
+  background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+  padding: 20px;
+  border-radius: 10px;
+  margin-bottom: 30px;
+  border-left: 5px solid #f39c12;
+}
+
+.info-banner h3 {
+  margin-top: 0;
+  color: #d35400;
+}
+
+.info-banner ul {
+  color: #8b4513;
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .metrics {
+    grid-template-columns: 1fr;
+  }
+  
+  .process-flow {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .process-arrow {
+    transform: rotate(90deg);
+  }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h1>📈 Stock Prediction Analysis for <strong>{{ symbol }}</strong></h1>
+
+  <!-- Info Banner -->
+  <div class="info-banner">
+    <h3>🔍 Feature Extraction Methods Used:</h3>
+    <ul>
+      <li>📊 <strong>Fourier Transform</strong> - Frequency domain analysis</li>
+      <li>🤖 <strong>Auto Encoder</strong> - Deep feature extraction</li>
+      <li>📈 <strong>Technical Indicators</strong> - Market signals</li>
+      <li>📋 <strong>Historical Data</strong> - OHLCV patterns</li>
+    </ul>
+  </div>
+
+  <!-- Process Flow -->
+  <div class="process-flow">
+    <div class="process-step">
+      <strong>1. Initial Analysis</strong><br>
+      <small>Raw data processing</small>
+    </div>
+    <div class="process-arrow">→</div>
+    <div class="process-step">
+      <strong>2. Feature Selection</strong><br>
+      <small>Important features identified</small>
+    </div>
+    <div class="process-arrow">→</div>
+    <div class="process-step">
+      <strong>3. Model Training</strong><br>
+      <small>GAN-based prediction</small>
+    </div>
+    <div class="process-arrow">→</div>
+    <div class="process-step">
+      <strong>4. Final Results</strong><br>
+      <small>Buy/Sell/Hold signals</small>
+    </div>
+  </div>
+
+  <!-- Metrics -->
+  <div class="metrics">
+    <div class="metric-card">
+      <h3>Accuracy</h3>
+      <span>{{ "%.1f" | format(metrics.accuracy * 100) }}%</span>
+    </div>
+    <div class="metric-card">
+      <h3>Precision</h3>
+      <span>{{ "%.1f" | format(metrics.precision * 100) }}%</span>
+    </div>
+    <div class="metric-card">
+      <h3>Recall</h3>
+      <span>{{ "%.1f" | format(metrics.recall * 100) }}%</span>
+    </div>
+    <div class="metric-card">
+      <h3>F1 Score</h3>
+      <span>{{ "%.1f" | format(metrics.f1 * 100) }}%</span>
+    </div>
+  </div>
+
+  <!-- Chart 1: Initial Buy/Sell/Hold Zones -->
+  <div class="chart-section">
+    <h2>🎯 Initial Buy/Sell/Hold Zones (Before Training)</h2>
+    <div class="chart">
+      {{ initial_chart | safe }}
+    </div>
+  </div>
+
+  <!-- Chart 2: Feature Importance -->
+  <div class="chart-section">
+    <h2>⚡ Feature Importance Analysis</h2>
+    <div class="chart">
+      {{ feature_importance | safe }}
+    </div>
+  </div>
+
+  <!-- Chart 3: Final Predictions -->
+  <div class="chart-section">
+    <h2>🚀 Final Prediction Results (After Training)</h2>
+    <div class="chart">
+      {{ final_chart | safe }}
+    </div>
+  </div>
+
+  <!-- Chart 4: Confusion Matrix -->
+  <div class="chart-section">
+    <h2>📊 Model Performance - Confusion Matrix</h2>
+    <div class="chart">
+      {{ confusion_matrix | safe }}
+    </div>
+  </div>
+</div>
+{% endblock %}

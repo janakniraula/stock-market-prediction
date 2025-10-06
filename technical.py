@@ -625,10 +625,12 @@ class Technical:
                 messages.append("⚠️ <strong>Hold:</strong> MACD is below Signal line but histogram is improving.")
 
         return {
-            "candlestick_chart": pio.to_html(fig_price, full_html=False),
-            "macd_chart": pio.to_html(fig_macd, full_html=False),
-            "messages": messages
-        }
+        "chart": (
+            pio.to_html(fig_price, full_html=False) +
+            pio.to_html(fig_macd, full_html=False)
+        ),
+        "messages": messages
+    }
 
     @staticmethod
     def rsi_strategy(df):

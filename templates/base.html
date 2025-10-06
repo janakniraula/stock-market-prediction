@@ -1,0 +1,215 @@
+<!-- templates/base.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}📈 Stock Analysis{% endblock %}</title>
+  
+  <!-- Base Styles -->
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      display: flex;
+      min-height: 100vh;
+      background: #f4f6f9;
+    }
+
+    /* Sidebar layout */
+    .sidebar {
+      width: 320px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 25px;
+      display: flex;
+      flex-direction: column;
+      border-right: 4px solid #555;
+      position: fixed;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .sidebar h2 {
+      text-align: center;
+      font-size: 1.5em;
+      margin-bottom: 25px;
+    }
+
+    .sidebar label {
+      display: block;
+      margin-top: 15px;
+      font-weight: 500;
+    }
+
+    .sidebar select,
+    .sidebar input[type="date"],
+    .sidebar input[type="range"] {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95em;
+      box-sizing: border-box;
+    }
+
+    .indicator-group {
+      margin-top: 10px;
+    }
+
+    .indicator-group label {
+      display: inline-block;
+      margin-right: 12px;
+    }
+
+    #termBlock {
+      margin-top: 15px;
+      background-color: rgba(255, 255, 255, 0.15);
+      padding: 12px;
+      border-radius: 10px;
+    }
+
+    output {
+      display: inline-block;
+      margin-left: 8px;
+      font-weight: bold;
+    }
+
+    .btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      font-size: 14px;
+      border: none;
+      border-radius: 6px;
+      background: #007bff;
+      color: white;
+      cursor: pointer;
+      transition: 0.3s ease;
+      margin-top: 20px;
+    }
+
+    .btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid #fff;
+      border-top: 2px solid transparent;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin {
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Content area */
+    .content {
+      flex-grow: 1;
+      margin-left: 320px;
+      padding: 30px;
+    }
+
+    /* Back to Analysis button for result pages */
+    .back-btn {
+      display: inline-block;
+      background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+      color: white;
+      text-decoration: none;
+      padding: 10px 20px;
+      border-radius: 25px;
+      margin-bottom: 20px;
+      transition: all 0.3s ease;
+      font-weight: 500;
+    }
+
+    .back-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+      text-decoration: none;
+      color: white;
+    }
+
+    @media (max-width: 800px) {
+      .sidebar {
+        position: relative;
+        width: 100%;
+        height: auto;
+        border-right: none;
+        border-bottom: 4px solid #555;
+      }
+      
+      .content {
+        margin-left: 0;
+      }
+      
+      body {
+        flex-direction: column;
+      }
+    }
+  </style>
+
+  <!-- Extra CSS Block -->
+  {% block extra_css %}{% endblock %}
+
+  <!-- Extra Head Block -->
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <!-- Sidebar Component -->
+  {% include 'components/sidebar.html' %}
+
+  <!-- Main Content -->
+  <div class="content" id="outputArea">
+    {% block content %}{% endblock %}
+  </div>
+
+  <!-- Base JavaScript -->
+  <script>
+    const form = document.getElementById('mainForm');
+    const optionSelect = document.getElementById('option');
+    const termBlock = document.getElementById('termBlock');
+    const submitBtn = document.querySelector('.btn');
+    const spinner = document.querySelector('.spinner');
+
+    function updateAction() {
+      const selected = optionSelect.value;
+      if (form) {
+        form.action = '/' + selected;
+        if (selected === 'technical') {
+          termBlock.style.display = 'block';
+        } else {
+          termBlock.style.display = 'none';
+        }
+      }
+    }
+
+    if (form) {
+      form.addEventListener('submit', function (e) {
+        if (!form.action || form.action.endsWith('/')) {
+          e.preventDefault();
+          alert('Please select a valid analysis type.');
+          return;
+        }
+        // Show spinner & disable button
+        if (submitBtn && spinner) {
+          submitBtn.disabled = true;
+          spinner.style.display = 'inline-block';
+          const btnText = submitBtn.querySelector('.btn-text');
+          if (btnText) btnText.textContent = "Running...";
+        }
+      });
+    }
+  </script>
+
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

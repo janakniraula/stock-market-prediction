@@ -177,8 +177,8 @@ class MarketPredictor:
     @staticmethod
     def run_model(full_data: pd.DataFrame, selected_df: pd.DataFrame = None):
         try:
-            print(f"Full data shape: {full_data.shape}")
-            print(f"Full data columns: {full_data.columns.tolist()}")
+                # print(f"Full data shape: {full_data.shape}")
+                # print(f"Full data columns: {full_data.columns.tolist()}")
             
             if selected_df is not None:
                 print(f"Selected data shape: {selected_df.shape}")
@@ -322,20 +322,30 @@ class MarketPredictor:
             np.random.seed(42)
             
             # Generator (Improved LSTM)
+            # generator = Sequential([
+            #     Bidirectional(LSTM(256, activation='tanh', return_sequences=True, 
+            #                      input_shape=(X_train_lstm.shape[1], X_train_lstm.shape[2]))),
+            #     Dropout(0.3),
+            #     Bidirectional(LSTM(128, activation='tanh', return_sequences=True)),
+            #     Dropout(0.2),
+            #     Bidirectional(LSTM(64, activation='tanh')),
+            #     Dropout(0.2),
+            #     Dense(64, activation='relu'),
+            #     BatchNormalization(),
+            #     Dense(32, activation='relu'),
+            #     Dense(3, activation='softmax')
+            # ])
+            #Trying small scale LSTM MODEL
             generator = Sequential([
-                Bidirectional(LSTM(256, activation='tanh', return_sequences=True, 
-                                 input_shape=(X_train_lstm.shape[1], X_train_lstm.shape[2]))),
-                Dropout(0.3),
-                Bidirectional(LSTM(128, activation='tanh', return_sequences=True)),
-                Dropout(0.2),
-                Bidirectional(LSTM(64, activation='tanh')),
-                Dropout(0.2),
-                Dense(64, activation='relu'),
-                BatchNormalization(),
-                Dense(32, activation='relu'),
-                Dense(3, activation='softmax')
+            LSTM(160, activation='tanh', return_sequences=True,
+                input_shape=(X_train_lstm.shape[1], X_train_lstm.shape[2])),
+            Dropout(0.15),
+            LSTM(80, activation='tanh', return_sequences=True),
+            LSTM(40, activation='tanh'),
+            Dense(32, activation='relu'),
+            Dense(3, activation='softmax')
             ])
-            
+                    
             generator.compile(
                 loss='categorical_crossentropy',
                 optimizer=Adam(learning_rate=0.0005),
@@ -378,7 +388,7 @@ class MarketPredictor:
             # Step 8: Enhanced training with early stopping and error handling
             from keras.callbacks import EarlyStopping
             batch_size = 32
-            epochs = 200
+            epochs = 100
             patience = 15
             
             early_stop = EarlyStopping(
