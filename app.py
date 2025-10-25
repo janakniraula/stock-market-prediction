@@ -138,14 +138,15 @@
 
 
 
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, session, redirect, url_for, flash, jsonify
 import pandas as pd
 import datetime
 import plotly.graph_objs as go
 import plotly.io as pio
 import os
 os.path.exists('predictor.py')
-
+from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
 from utils import Preprocess
 from technical import Technical
 from predictor import MarketPredictor
@@ -153,38 +154,58 @@ from strategy import Strategy
 import sys
 import io
 sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding='utf-8', errors='replace')
+import uuid
+from sqlalchemy.dialects.postgresql import UUID
+from functools import wraps
+from scrapperflask import update_csv
 
 
 app = Flask(__name__)
-predictor = MarketPredictor()
-json_data = [
-    {"symbol": "NABIL", "companyName": "Nepal Investment Bank Ltd"},
-    {"symbol": "ADBL", "companyName": "Agricultural Development Bank Ltd"},
-    {"symbol": "NICA", "companyName": "NIC Asia Bank Ltd"},
-    {"symbol": "SHL", "companyName": "Soaltee Hotel Ltd"},
-    {"symbol": "EBL", "companyName": "Everest Bank Ltd"},
-    {"symbol": "HIDCL", "companyName": "Hydroelectricity Investment & Dev Co Ltd"},
-]
+# Database setup
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://root:1234@localhost:5432/stock-market-prediction'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECRET_KEY'] = 'supersecretkey' 
 
-def get_company_name(symbol):
-    for item in json_data:
-        if item['symbol'] == symbol:
-            return item['companyName']
-    return symbol
-def get_sidebar_data():
-    """
-    Function to prepare sidebar data that will be available to all templates
-    """
-    symbols = sorted([item["symbol"] for item in json_data])
-    today = datetime.date.today()
-    default_start = (today - datetime.timedelta(days=365)).strftime("%Y-%m-%d")
+db = SQLAlchemy(app)
+
+class User(db.Model):
+    __tablename__ = 'users'
+
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password = db.Column(db.String(120), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+class Stock(db.Model):
+    __tablename__ = 'stocks'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    company_name = db.Column(db.String(255), nullable=False)
+    company_code = db.Column(db.String(50), unique=True, nullable=False)
     
-    return {
-        'symbols': symbols,
-        'today': today.strftime("%Y-%m-%d"),
-        'default_start': default_start,
-        'json_data': json_data  # Include full data for company names if needed
+def get_company_name(symbol):
+    stock = Stock.query.filter_by(company_code=symbol).first()
+    return stock.company_name if stock else symbol
+
+predictor = MarketPredictor()
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Please log in to continue.')
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+def get_sidebar_data():
+    """Prepare sidebar data dynamically from DB."""
+    stocks = Stock.query.order_by(Stock.company_code).all()
+    symbols = [stock.company_code for stock in stocks]
+
+    sidebar_data = {
+        "symbols": symbols
     }
+    return sidebar_data
+
 
 @app.context_processor
 def inject_sidebar_data():
@@ -194,9 +215,114 @@ def inject_sidebar_data():
     return {
         'sidebar_data': get_sidebar_data()
     }
+
+@app.route("/stock/<symbol>")
+def stock_data(symbol):
+    """Read CSV data for a given stock and return from/to dates."""
+    csv_path = os.path.join("data", f"{symbol}.csv")
+
+    if not os.path.exists(csv_path):
+        return {"error": f"No CSV found for {symbol}"}, 404
+
+    # Read CSV
+    df = pd.read_csv(csv_path)
+
+    # Normalize column names to match even if lowercase
+    df.columns = [col.strip().capitalize() for col in df.columns]
+
+    required_cols = {"Date", "Symbol", "Open", "High", "Low", "Close", "Volume"}
+    if not required_cols.issubset(df.columns):
+        return {"error": "CSV missing required columns"}, 400
+
+    # Sort by date to ensure order
+    df["Date"] = pd.to_datetime(df["Date"])
+    df = df.sort_values("Date").reset_index(drop=True)
+
+    # Correct order: first value = from_date, last value = to_date
+    from_date = str(df.iloc[0]["Date"].date())
+    to_date = str(df.iloc[-1]["Date"].date())
+
+    return {
+        "symbol": symbol,
+        "from_date": from_date,
+        "to_date": to_date
+    }
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form['username'].strip()
+        password = request.form['password']
+
+        if User.query.filter_by(username=username).first():
+            flash('Username already exists!')
+            return redirect(url_for('register'))
+
+        hashed_pw = generate_password_hash(password)
+        new_user = User(username=username, password=hashed_pw)
+        db.session.add(new_user)
+        db.session.commit()
+
+        flash('Registered successfully! Please log in.')
+        return redirect(url_for('login'))
+
+    return render_template('register.html')
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username'].strip()
+        password = request.form['password']
+
+        user = User.query.filter_by(username=username).first()
+        if user and check_password_hash(user.password, password):
+            session['user_id'] = user.id
+            flash('Login successful!')
+            return redirect(url_for('home'))
+        else:
+            flash('Invalid username or password.')
+
+    return render_template('login.html')
+@app.route('/scrape', methods=['POST'])
+@login_required
+def scrape():
+    symbol = request.form.get('symbol', '').upper()
+    if not symbol:
+        flash("Please enter a stock symbol.")
+        return redirect(url_for('home'))
+
+    try:
+        result = update_csv(symbol)
+
+        # Load the scraped CSV into a DataFrame
+        df = pd.read_csv(result['file'])
+        table_html = df.tail(20).to_html(classes="table table-striped", index=False)  # show last 20 rows
+
+        return render_template(
+            'scrape_result.html',
+            symbol=symbol,
+            message=result['message'],
+            date_range=result['date_range'],
+            rows=result['rows'],
+            table_html=table_html
+        )
+
+    except Exception as e:
+        flash(f"Error: {e}")
+        return redirect(url_for('home'))
+
+
+@app.route('/logout')
+def logout():
+    session.pop('user_id', None)
+    flash('Logged out successfully!')
+    return redirect(url_for('login'))
+
 @app.route("/", methods=["GET", "POST"])
+@login_required
 def home():
-    symbols = sorted([item["symbol"] for item in json_data])
+    symbols = [s.company_code for s in Stock.query.order_by(Stock.company_code).all()]
     # today = datetime.datetime.strptime("2024-02-20", "%Y-%m-%d")
     today = datetime.date.today()
     default_start = (today - datetime.timedelta(days=90)).strftime("%Y-%m-%d")
@@ -314,6 +440,7 @@ def home():
 #         return f"An unexpected error occurred during prediction: {str(e)}"
 
 @app.route("/predict", methods=["POST"])
+@login_required
 def predictor_view():
     symbol = request.form.get("symbol")
     start_date = request.form.get("start_date")
@@ -391,6 +518,7 @@ def predictor_view():
 
 
 @app.route("/technical", methods=["POST"])
+@login_required
 def technical_analysis():
     symbol = request.form.get("symbol")
     indicators = request.form.getlist("indicators")  # checkbox values
@@ -422,6 +550,7 @@ def technical_analysis():
 
 
 @app.route("/strategy", methods=["POST"])
+@login_required
 def strategy_view():
     symbol = request.form.get("symbol")
 
@@ -446,6 +575,7 @@ def strategy_view():
                              symbol=symbol,
                              company_name=get_company_name(symbol))
 @app.route('/utils', methods=['GET', 'POST'])
+@login_required
 def utils():
     error = None
     feature_score_html = None

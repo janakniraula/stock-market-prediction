@@ -1,19 +1,29 @@
-<!-- templates/components/sidebar.html -->
+
 <div class="sidebar">
   <h2>📋 Stock Analysis</h2>
+
+  {% if session.get('user_id') %}
+  <div style="margin-bottom: 20px; text-align: center;">
+    <form action="{{ url_for('logout') }}" method="GET">
+      <button type="submit" class="btn-logout">🚪 Logout</button>
+    </form>
+  </div>
+  {% endif %}
+
   <form id="mainForm" method="POST">
     <label for="symbol">Select Stock:</label>
-    <select name="symbol" required>
+    <select name="symbol" id="symbolSelect" required>
+      <option value="">-- Select Symbol --</option>
       {% for symbol in sidebar_data.symbols %}
         <option value="{{ symbol }}">{{ symbol }}</option>
       {% endfor %}
     </select>
 
     <label for="start_date">Start Date:</label>
-    <input type="date" name="start_date" value="{{ sidebar_data.default_start }}" required>
+    <input type="date" name="start_date" id="startDate">
 
     <label for="end_date">End Date:</label>
-    <input type="date" name="end_date" value="{{ sidebar_data.today }}" required>
+    <input type="date" name="end_date" id="endDate">
 
     <label for="option">Select Analysis Type:</label>
     <select name="option" id="option" required onchange="updateAction()">
@@ -42,12 +52,60 @@
     </button>
   </form>
 
-  <!-- Optional: Add navigation links for result pages -->
+  <!-- SCRAPER FORM -->
+  <form id="scraperForm" action="{{ url_for('scrape') }}" method="POST">
+    <label for="symbol">Stock Symbol:</label>
+    <input type="text" name="symbol" required>
+    <button type="submit" id="scrapeBtn">
+      <span class="btn-text">Scrape</span>
+      <div class="spinner"></div>
+    </button>
+  </form>
+
   {% if request.endpoint != 'index' %}
   <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.3);">
-    <a href="/" class="back-btn" style="display: block; text-align: center;">
-      ← New Analysis
-    </a>
+    <a href="/" class="back-btn" style="display: block; text-align: center;">← New Analysis</a>
   </div>
   {% endif %}
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const symbolSelect = document.getElementById("symbolSelect");
+  const startDate = document.getElementById("startDate");
+  const endDate = document.getElementById("endDate");
+  const scraperForm = document.getElementById("scraperForm");
+  const scrapeBtn = document.getElementById("scrapeBtn");
+
+  // Disable scrape button while scraping
+  scraperForm.addEventListener("submit", function() {
+    scrapeBtn.disabled = true;
+    scrapeBtn.querySelector(".btn-text").textContent = "Scraping...";
+    scrapeBtn.querySelector(".spinner").style.display = "inline-block";
+  });
+
+  // Load date range for selected symbol
+  symbolSelect.addEventListener("change", async function() {
+    const symbol = this.value;
+    if (!symbol) {
+      startDate.value = "";
+      endDate.value = "";
+      return;
+    }
+
+    try {
+      const response = await fetch(`/stock/${symbol}`);
+      if (!response.ok) throw new Error("No data found for this symbol");
+
+      const data = await response.json();
+      startDate.value = data.from_date;
+      endDate.value = data.to_date;
+    } catch (err) {
+      console.error(err);
+      alert("⚠️ Could not load stock data for " + symbol);
+      startDate.value = "";
+      endDate.value = "";
+    }
+  });
+});
+</script>

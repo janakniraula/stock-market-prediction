@@ -145,7 +145,6 @@ class ModelCache:
         except Exception as e:
             print(f"Error loading cache: {e}")
             return None
-
 class MarketPredictor:
     def __init__(self):
         self.cache = ModelCache()

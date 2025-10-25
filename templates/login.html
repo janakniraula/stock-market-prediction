@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Login</title>
+  <style>
+    /* General Layout */
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #0f172a, #1e293b);
+      color: #f8fafc;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0;
+    }
+
+    .login-container {
+      background: rgba(30, 41, 59, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      padding: 40px;
+      width: 350px;
+      text-align: center;
+      transition: all 0.3s ease-in-out;
+    }
+
+    .login-container:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+    }
+
+    h2 {
+      margin-bottom: 20px;
+      font-size: 24px;
+      color: #38bdf8;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    input {
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      background-color: #1e293b;
+      color: #f1f5f9;
+      outline: none;
+      font-size: 15px;
+      transition: border 0.2s ease;
+    }
+
+    input:focus {
+      border: 1px solid #38bdf8;
+      background-color: #0f172a;
+    }
+
+    button {
+      background-color: #38bdf8;
+      color: #0f172a;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      padding: 10px;
+      cursor: pointer;
+      transition: background-color 0.2s ease-in-out;
+    }
+
+    button:hover {
+      background-color: #0ea5e9;
+    }
+
+    p {
+      margin-top: 15px;
+      font-size: 14px;
+    }
+
+    a {
+      color: #38bdf8;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .error-message {
+      color: #f87171;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+
+    /* Optional responsive tweak */
+    @media (max-width: 400px) {
+      .login-container {
+        width: 90%;
+        padding: 25px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <h2>🔐 Login</h2>
+    <form method="POST">
+      <input name="username" placeholder="Username" required>
+      <input name="password" placeholder="Password" type="password" required>
+      <button type="submit">Login</button>
+    </form>
+
+    <p>Don't have an account? <a href="{{ url_for('register') }}">Register</a></p>
+
+    {% with messages = get_flashed_messages() %}
+      {% for msg in messages %}
+        <p class="error-message">{{ msg }}</p>
+      {% endfor %}
+    {% endwith %}
+  </div>
+</body>
+</html>

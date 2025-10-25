@@ -150,36 +150,32 @@ class Strategy:
         df.set_index('Date', inplace=True)
 
         def find_support_resistance(data, no_cluster):
-            kmeans = KMeans(n_clusters=no_cluster, n_init='auto').fit(data[['Close']])
-            clusters = kmeans.predict(data[['Close']])
-
-            min_max_values = [[np.inf, -np.inf] for _ in range(no_cluster)]
-            for i, price in enumerate(data['Close']):
-                cluster = clusters[i]
-                if price < min_max_values[cluster][0]:
-                    min_max_values[cluster][0] = price
-                if price > min_max_values[cluster][1]:
-                    min_max_values[cluster][1] = price
-
-            sorted_ranges = sorted(min_max_values, key=lambda x: x[0])
-            output = []
-            for i, (_min, _max) in enumerate(sorted_ranges):
-                if i == 0:
-                    output.append(_min)
-                elif i == len(sorted_ranges) - 1:
-                    output.append(_max)
-                else:
-                    output.append((_max + sorted_ranges[i + 1][0]) / 2)
-            return output
+            # Use BOTH High and Low prices for better detection
+            all_prices = np.concatenate([data['High'].values, data['Low'].values])
+            all_prices = all_prices.reshape(-1, 1)
+            
+            # Cluster all price points
+            kmeans = KMeans(n_clusters=no_cluster, n_init='auto', random_state=42).fit(all_prices)
+            
+            # Get cluster centers and sort them
+            centers = sorted(kmeans.cluster_centers_.flatten())
+            
+            # Remove clusters that are too close together (within 1% of each other)
+            filtered_centers = [centers[0]]
+            for center in centers[1:]:
+                if abs(center - filtered_centers[-1]) / filtered_centers[-1] > 0.01:
+                    filtered_centers.append(center)
+            
+            return filtered_centers
 
         def filter_sr(sr_array, close, threshold):
             return [val for val in sr_array if abs(val - close) <= threshold]
 
-        num_clusters = 50
+        num_clusters = 30  # Reduced from 50 for better level detection
         sr_levels = find_support_resistance(df, num_clusters)
-        sr_levels = filter_sr(sr_levels, df['Close'].iloc[-1], 50)
+        sr_levels = filter_sr(sr_levels, df['Close'].iloc[-1], 100)  # Increased threshold
 
-        data_range = 80
+        data_range = 50
         fig = go.Figure()
         fig.add_trace(go.Candlestick(
             x=df.index[-data_range:],
@@ -196,12 +192,17 @@ class Strategy:
         ))
 
         supports, resistances = [], []
+        current_price = df['Close'].iloc[-1]
+        
         for point in sr_levels:
-            color = 'red' if point < df['Close'].iloc[-1] else 'green'
-            if point < df['Close'].iloc[-1]:
+            # Color logic: red for support (below), green for resistance (above)
+            if point < current_price:
+                color = 'red'
                 supports.append(point)
             else:
+                color = 'green'
                 resistances.append(point)
+            
             fig.add_shape(type="line",
                           x0=df.index[-data_range],
                           y0=point,
@@ -215,7 +216,8 @@ class Strategy:
             xaxis_title='Date',
             yaxis_title='Price',
             height=800,
-            width=1000
+            width=1000,
+            xaxis_rangeslider_visible=False
         )
 
         chart_html = pio.to_html(fig, full_html=False)
