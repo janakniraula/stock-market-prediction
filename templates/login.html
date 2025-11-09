@@ -95,7 +95,6 @@
       font-size: 14px;
     }
 
-    /* Optional responsive tweak */
     @media (max-width: 400px) {
       .login-container {
         width: 90%;
@@ -108,7 +107,7 @@
   <div class="login-container">
     <h2>🔐 Login</h2>
     <form method="POST">
-      <input name="username" placeholder="Username" required>
+      <input name="email" placeholder="Email" type="email" required>
       <input name="password" placeholder="Password" type="password" required>
       <button type="submit">Login</button>
     </form>

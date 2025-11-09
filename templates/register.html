@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <title>Register</title>
   <style>
-    /* General Layout */
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: linear-gradient(135deg, #0f172a, #1e293b);
@@ -95,7 +94,6 @@
       font-size: 14px;
     }
 
-    /* Optional responsive tweak */
     @media (max-width: 400px) {
       .register-container {
         width: 90%;
@@ -107,9 +105,11 @@
 <body>
   <div class="register-container">
     <h2>📝 Register</h2>
-    <form method="POST">
+    <form method="POST" onsubmit="return validatePassword()">
       <input name="username" placeholder="Username" required>
-      <input name="password" placeholder="Password" type="password" required>
+      <input name="email" placeholder="Email" type="email" required>
+      <input name="password" id="password" placeholder="Password" type="password" required>
+      <input name="confirm_password" id="confirm_password" placeholder="Confirm Password" type="password" required>
       <button type="submit">Register</button>
     </form>
 
@@ -121,5 +121,18 @@
       {% endfor %}
     {% endwith %}
   </div>
+
+  <script>
+    function validatePassword() {
+      const password = document.getElementById("password").value;
+      const confirmPassword = document.getElementById("confirm_password").value;
+
+      if (password !== confirmPassword) {
+        alert("Passwords do not match!");
+        return false;
+      }
+      return true;
+    }
+  </script>
 </body>
 </html>

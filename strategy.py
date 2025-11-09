@@ -143,118 +143,92 @@ from sklearn.cluster import KMeans
 import plotly.io as pio
 
 class Strategy:
-    @staticmethod
-    def run(full_data):
-        df = full_data.copy()
-        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-        df.set_index('Date', inplace=True)
+    def __init__(self, df):
+        self.df = df.copy()
+        self.df.columns = self.df.columns.str.strip()  # fix BOM
+        self.df.set_index("Date", inplace=True)
 
-        def find_support_resistance(data, no_cluster):
-            # Use BOTH High and Low prices for better detection
-            all_prices = np.concatenate([data['High'].values, data['Low'].values])
-            all_prices = all_prices.reshape(-1, 1)
-            
-            # Cluster all price points
-            kmeans = KMeans(n_clusters=no_cluster, n_init='auto', random_state=42).fit(all_prices)
-            
-            # Get cluster centers and sort them
-            centers = sorted(kmeans.cluster_centers_.flatten())
-            
-            # Remove clusters that are too close together (within 1% of each other)
-            filtered_centers = [centers[0]]
-            for center in centers[1:]:
-                if abs(center - filtered_centers[-1]) / filtered_centers[-1] > 0.01:
-                    filtered_centers.append(center)
-            
-            return filtered_centers
+    def kmeans_clustering(self, n_clusters=6, random_state=42):
+        self.df["avg_price"] = (self.df["High"] + self.df["Low"] + self.df["Close"]) / 3.0
+        prices = self.df["avg_price"].values.reshape(-1, 1)
 
-        def filter_sr(sr_array, close, threshold):
-            return [val for val in sr_array if abs(val - close) <= threshold]
+        kmeans = KMeans(n_clusters=n_clusters, random_state=random_state)
+        centers = sorted(kmeans.fit(prices).cluster_centers_.flatten())
 
-        num_clusters = 30  # Reduced from 50 for better level detection
-        sr_levels = find_support_resistance(df, num_clusters)
-        sr_levels = filter_sr(sr_levels, df['Close'].iloc[-1], 100)  # Increased threshold
+        # remove clusters too close (<1%)
+        filtered = [centers[0]]
+        for c in centers[1:]:
+            if abs(c - filtered[-1]) / filtered[-1] > 0.01:
+                filtered.append(c)
 
-        data_range = 50
+        return filtered
+
+    def run(self, start_date=None, end_date=None):
+        df = self.df.copy()
+
+        if start_date:
+            df = df[df.index >= pd.to_datetime(start_date)]
+        if end_date:
+            df = df[df.index <= pd.to_datetime(end_date)]
+
+        if df.empty:
+            raise ValueError("No data available for selected date range.")
+
+        sr_levels = self.kmeans_clustering()
+        current_price = df["Close"].iloc[-1]
+
+        supports = [lvl for lvl in sr_levels if lvl < current_price]
+        resistances = [lvl for lvl in sr_levels if lvl > current_price]
+
         fig = go.Figure()
         fig.add_trace(go.Candlestick(
-            x=df.index[-data_range:],
-            open=df['Open'][-data_range:],
-            high=df['High'][-data_range:],
-            low=df['Low'][-data_range:],
-            close=df['Close'][-data_range:],
-            increasing_line_color='green',
-            decreasing_line_color='red',
-            line_width=1.2,
-            whiskerwidth=0.2,
-            opacity=0.85,
-            name='Candlesticks'
+            x=df.index, open=df["Open"], high=df["High"],
+            low=df["Low"], close=df["Close"],
+            increasing_line_color="green", decreasing_line_color="red"
         ))
 
-        supports, resistances = [], []
-        current_price = df['Close'].iloc[-1]
-        
-        for point in sr_levels:
-            # Color logic: red for support (below), green for resistance (above)
-            if point < current_price:
-                color = 'red'
-                supports.append(point)
-            else:
-                color = 'green'
-                resistances.append(point)
-            
-            fig.add_shape(type="line",
-                          x0=df.index[-data_range],
-                          y0=point,
-                          x1=df.index[-1],
-                          y1=point,
-                          line=dict(color=color, width=1),
-                          opacity=0.7)
+        # Plot Support (green)
+        for lvl in supports:
+            fig.add_shape(type="line", x0=df.index.min(), y0=lvl,
+                        x1=df.index.max(), y1=lvl,
+                        line=dict(color="green", width=1.4, dash="dot"))
+            # Offset annotation to the left
+            fig.add_annotation(x=df.index.min(), y=lvl, text=f"S {round(lvl,2)}",
+                            xanchor='right', yanchor='bottom',
+                            showarrow=False, font=dict(color="green"))
 
-        fig.update_layout(
-            title='Stock Price with Support and Resistance',
-            xaxis_title='Date',
-            yaxis_title='Price',
-            height=800,
-            width=1000,
-            xaxis_rangeslider_visible=False
-        )
+        # Plot Resistance (red)
+        for lvl in resistances:
+            fig.add_shape(type="line", x0=df.index.min(), y0=lvl,
+                        x1=df.index.max(), y1=lvl,
+                        line=dict(color="red", width=1.4, dash="dot"))
+            # Offset annotation to the left
+            fig.add_annotation(x=df.index.min(), y=lvl, text=f"R {round(lvl,2)}",
+                            xanchor='right', yanchor='bottom',
+                            showarrow=False, font=dict(color="red"))
+
+
+        fig.update_layout(title=f"Support & Resistance ({start_date} → {end_date})",
+                          xaxis_rangeslider_visible=False,
+                          height=800)
 
         chart_html = pio.to_html(fig, full_html=False)
 
-        # STRATEGY MESSAGES
+        # ✅ Strategy Messages
         messages = []
-        current_price = df['Close'].iloc[-1]
-        strategy = "None"
+        if supports:
+            s = max(supports)
+            messages.append(
+                f"📈 <b>Buy Near Support:</b> Rs. {round(s,2)}<br>"
+                f"🔻 Stop Loss: <b>Rs. {round(s-2,2)}</b>"
+            )
 
-        current_support = max(supports) if supports else None
-        current_resistance = min(resistances) if resistances else None
+        if resistances:
+            r = min(resistances)
+            messages.append(
+                f"📉 <b>Sell Near Resistance:</b> Rs. {round(r,2)}<br>"
+                f"🎯 Target: <b>Rs. {round(r+2,2)}</b>"
+            )
 
-        if current_resistance:
-            if current_price < current_resistance:
-                sell_t1 = round(current_resistance - 2, 2)
-                sell_t2 = round(current_resistance + 2, 2)
-                strategy = "Sell at Resistance"
-                messages.append(f"📉 <strong>{strategy}</strong>: Sell between <strong>Rs. {sell_t1}</strong> and <strong>Rs. {sell_t2}</strong>")
+        return {"chart_html": chart_html, "strategy_notes": messages}
 
-            elif current_price > current_resistance:
-                buy_t1 = round(current_resistance - 2, 2)
-                buy_t2 = round(current_resistance + 2, 2)
-                strategy = "Buy at Resistance"
-                messages.append(f"📈 <strong>{strategy}</strong>: Buy between <strong>Rs. {buy_t1}</strong> and <strong>Rs. {buy_t2}</strong><br>Stop loss below <strong>Rs. {buy_t1}</strong>")
-
-        if current_support:
-            if current_price < current_support:
-                stop_loss = round(current_support - 2, 2)
-                strategy = "Watch and Hold"
-                messages.append(f"🕒 <strong>{strategy}</strong>: Stop loss below <strong>Rs. {stop_loss}</strong>")
-            elif current_price > current_support:
-                buy_t1 = round(current_support - 2, 2)
-                buy_t2 = round(current_support + 2, 2)
-                strategy = "Buy at Support"
-                messages.append(f"📈 <strong>{strategy}</strong>: Buy between <strong>Rs. {buy_t1}</strong> and <strong>Rs. {buy_t2}</strong><br>Stop loss below <strong>Rs. {buy_t1}</strong>")
-
-        return {
-            "chart_html": chart_html,
-            "strategy_notes": messages
-        }

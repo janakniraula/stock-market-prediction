@@ -252,14 +252,26 @@ def stock_data(symbol):
 def register():
     if request.method == 'POST':
         username = request.form['username'].strip()
+        email = request.form['email'].strip().lower()
         password = request.form['password']
+        confirm_password = request.form['confirm_password']
 
+        # Check if passwords match
+        if password != confirm_password:
+            flash('Passwords do not match!')
+            return redirect(url_for('register'))
+
+        # Check if username or email already exist
         if User.query.filter_by(username=username).first():
             flash('Username already exists!')
             return redirect(url_for('register'))
 
+        if User.query.filter_by(email=email).first():
+            flash('Email already registered!')
+            return redirect(url_for('register'))
+
         hashed_pw = generate_password_hash(password)
-        new_user = User(username=username, password=hashed_pw)
+        new_user = User(username=username, email=email, password=hashed_pw)
         db.session.add(new_user)
         db.session.commit()
 
@@ -272,16 +284,16 @@ def register():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username'].strip()
+        email = request.form['email'].strip().lower()
         password = request.form['password']
 
-        user = User.query.filter_by(username=username).first()
+        user = User.query.filter_by(email=email).first()
         if user and check_password_hash(user.password, password):
             session['user_id'] = user.id
             flash('Login successful!')
             return redirect(url_for('home'))
         else:
-            flash('Invalid username or password.')
+            flash('Invalid email or password.')
 
     return render_template('login.html')
 @app.route('/scrape', methods=['POST'])
@@ -530,7 +542,7 @@ def technical_analysis():
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
         df.dropna(subset=['Date'], inplace=True)
 
-        results = Technical.run_analysis(df, indicators, term)
+        results = Technical.run_analysis(df, indicators, term, start_date, end_date)
 
         return render_template(
             "technical_result.html",
@@ -553,27 +565,34 @@ def technical_analysis():
 @login_required
 def strategy_view():
     symbol = request.form.get("symbol")
+    start_date = request.form.get("start_date")
+    end_date = request.form.get("end_date")
 
     try:
-        df = pd.read_csv(f"data/{symbol}.csv")
+        df = pd.read_csv(f"data/{symbol}.csv", encoding="utf-8-sig")
+        df.columns = df.columns.str.strip()  # fix BOM whitespace
         df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-        df = df.dropna(subset=["Date"])
-    # print(df)
-        result = Strategy.run(df)
+        df.dropna(subset=["Date"], inplace=True)
+
+        strategy = Strategy(df)  # instantiate strategy with df
+        result = strategy.run(start_date=start_date, end_date=end_date)
 
         return render_template(
-                    "strategy_result.html",
-                    symbol=symbol,
-                    company_name=get_company_name(symbol),
-                    chart=result["chart_html"],
-                    notes=result["strategy_notes"]
+            "strategy_result.html",
+            symbol=symbol,
+            company_name=get_company_name(symbol),
+            chart=result["chart_html"],
+            notes=result["strategy_notes"]
+        )
 
-                )
     except Exception as e:
-        return render_template('error.html',
-                             error_message=f"Strategy analysis error: {str(e)}",
-                             symbol=symbol,
-                             company_name=get_company_name(symbol))
+        return render_template(
+            "error.html",
+            error_message=f"Strategy analysis error: {str(e)}",
+            symbol=symbol,
+            company_name=get_company_name(symbol)
+        )
+
 @app.route('/utils', methods=['GET', 'POST'])
 @login_required
 def utils():

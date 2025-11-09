@@ -9,16 +9,11 @@ from keras.layers import Dense, Dropout, LSTM, BatchNormalization, Input
 import xgboost as xgb
 from xgboost import plot_importance
 from sklearn.decomposition import PCA
-# import streamlit as st
+
 
 class Preprocess:
     def getData(symbol):
-        # conn_str = "mongodb+srv://pranavdahal:NW0NR8zXe85nwCYs@cluster0.cqakhhi.mongodb.net/"
-        # client = MongoClient(conn_str)
-        # db = client["nepse"]
-        # collection = db["todayPrice"]
 
-        # data = pd.DataFrame(list(collection.find({"symbol":symbol})))
         file_path = f"data/{symbol}.csv"
         # Read CSV data
         data = pd.read_csv(file_path)

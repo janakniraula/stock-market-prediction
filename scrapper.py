@@ -116,7 +116,7 @@ from playwright.sync_api import sync_playwright, TimeoutError
 import time
 import os
 
-DATA_DIR = "data"
+DATA_DIR = "data2"
 
 def scrape_merolagani(symbol: str, last_date: str = None):
     url = f"https://merolagani.com/CompanyDetail.aspx?symbol={symbol}"
