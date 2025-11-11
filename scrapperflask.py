@@ -304,11 +304,11 @@
 
 
 import pandas as pd
-from playwright.sync_api import sync_playwright, TimeoutError
+from playwright.sync_api import sync_playwright
 import time
 import os
 import random
-from sqlalchemy import create_engine, Column, Integer, String, text
+from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 DATA_DIR = "data"
@@ -334,7 +334,6 @@ class Stock(Base):
     company_code = Column(String, unique=True, nullable=False)
 
 
-# Create table if not exists
 Base.metadata.create_all(bind=engine)
 
 
@@ -342,7 +341,6 @@ Base.metadata.create_all(bind=engine)
 # Save Company Info
 # -----------------------------
 def save_stock_info(company_name, company_code):
-    """Save company info into PostgreSQL using SQLAlchemy ORM."""
     session = SessionLocal()
     try:
         existing = session.query(Stock).filter_by(company_code=company_code).first()
@@ -351,7 +349,6 @@ def save_stock_info(company_name, company_code):
             session.add(stock)
             session.commit()
         else:
-            # Optional: update name if changed
             if existing.company_name != company_name:
                 existing.company_name = company_name
                 session.commit()
@@ -363,10 +360,9 @@ def save_stock_info(company_name, company_code):
 
 
 # -----------------------------
-# Helper: Wait until data rows appear
-# -----------------------------   
+# Wait for table data
+# -----------------------------
 def wait_for_data(page, retries=6, delay=2):
-    """Wait until at least one data row is visible in the price table."""
     for _ in range(retries):
         rows = page.query_selector_all(
             "#ctl00_ContentPlaceHolder1_CompanyDetail1_divDataPrice table.table-bordered tr"
@@ -378,7 +374,7 @@ def wait_for_data(page, retries=6, delay=2):
 
 
 # -----------------------------
-# Core Scraper Function
+# Core Scraper
 # -----------------------------
 def scrape_merolagani(symbol: str, last_date: str = None):
     url = f"https://merolagani.com/CompanyDetail.aspx?symbol={symbol}"
@@ -389,9 +385,7 @@ def scrape_merolagani(symbol: str, last_date: str = None):
         page = browser.new_page()
         page.goto(url, timeout=60000)
 
-        # --- Extract company name and code ---
-        company_name = None
-        company_code = None
+        # --- Extract company name/code ---
         try:
             element = page.query_selector("#ctl00_ContentPlaceHolder1_CompanyDetail1_companyName")
             if element:
@@ -402,22 +396,18 @@ def scrape_merolagani(symbol: str, last_date: str = None):
                 else:
                     company_name = text_val
                     company_code = symbol
+                save_stock_info(company_name, company_code)
+                print(f"Scraping: {company_name} ({company_code})")
         except Exception as e:
             print(f"⚠️ Could not extract company name for {symbol}: {e}")
 
-        # --- Save to DB ---
-        if company_name and company_code:
-            print(f"{company_name} {company_code}")
-            save_stock_info(company_name, company_code)
-
-        # --- Ensure "Price History" tab is active ---
+        # --- Ensure Price History tab is active ---
         try:
             page.click("text=Price History", timeout=10000)
             page.wait_for_load_state("networkidle")
         except Exception:
             pass
 
-        # --- Wait until the table data is actually present ---
         if not wait_for_data(page):
             print(f"⚠️ Data not loaded for {symbol}, retrying page reload...")
             page.reload()
@@ -431,17 +421,15 @@ def scrape_merolagani(symbol: str, last_date: str = None):
                 browser.close()
                 return pd.DataFrame()
 
-        stop_scraping = False
-
-        while not stop_scraping:
-            time.sleep(random.uniform(1.5, 2.5))
-
+        # --- Scrape all pages ---
+        while True:
+            time.sleep(random.uniform(1.2, 2.5))
             rows = page.query_selector_all(
                 "#ctl00_ContentPlaceHolder1_CompanyDetail1_divDataPrice table.table-bordered tr"
             )
 
             for i, row in enumerate(rows):
-                if i == 0:  # skip header
+                if i == 0:
                     continue
                 cols = row.query_selector_all("td")
                 if len(cols) >= 9:
@@ -451,31 +439,26 @@ def scrape_merolagani(symbol: str, last_date: str = None):
                             web_date = pd.to_datetime(row_data[0], format="%Y/%m/%d").strftime("%Y-%m-%d")
                         except:
                             continue
-
                         if last_date and web_date <= last_date:
-                            stop_scraping = True
-                            break
-
+                            browser.close()
+                            df = pd.DataFrame(all_data,
+                                              columns=["Date", "Close", "% Change", "High", "Low", "Open", "Volume", "Turnover"])
+                            return df
                         all_data.append([web_date] + row_data[1:])
 
-            if stop_scraping:
-                break
-
-            # --- Go to Next Page if exists ---
-            next_btn = page.query_selector("a[title='Next Page']")
+            # --- Click Next Page if exists ---
+            next_btn = page.query_selector("a:text('Next')")
             if not next_btn:
                 break
 
-            onclick_attr = next_btn.get_attribute("onclick")
-            if onclick_attr and "changePageIndex" in onclick_attr:
-                try:
-                    next_btn.click()
-                    page.wait_for_load_state("networkidle")
-                    if not wait_for_data(page):
-                        break
-                except Exception:
-                    break
-            else:
+            try:
+                next_btn.click()
+                page.wait_for_selector(
+                    "#ctl00_ContentPlaceHolder1_CompanyDetail1_divDataPrice table.table-bordered tr",
+                    timeout=30000
+                )
+                time.sleep(random.uniform(1.2, 2.5))
+            except Exception:
                 break
 
         browser.close()
@@ -488,25 +471,33 @@ def scrape_merolagani(symbol: str, last_date: str = None):
         all_data,
         columns=["Date", "Close", "% Change", "High", "Low", "Open", "Volume", "Turnover"]
     )
-
-    # Keep only relevant columns for CSV
-    df["Symbol"] = symbol
-    df = df[["Date", "Symbol", "Open", "High", "Low", "Close", "Volume"]]
-
-    # Convert numeric columns
-    for col in ["Open", "High", "Low", "Close"]:
-        df[col] = df[col].str.replace(",", "", regex=False).astype(float)
+        # Keep only relevant columns for CSV
+        # Ensure numeric cleaning
+    df["Open"] = df["Open"].str.replace(",", "", regex=False).astype(float)
+    df["High"] = df["High"].str.replace(",", "", regex=False).astype(float)
+    df["Low"] = df["Low"].str.replace(",", "", regex=False).astype(float)
+    df["Close"] = df["Close"].str.replace(",", "", regex=False).astype(float)
     df["Volume"] = df["Volume"].str.replace(",", "", regex=False).astype(int)
 
-    df = df.sort_values("Date").reset_index(drop=True)
+    # ✅ Construct the final clean layout
+    df_clean = pd.DataFrame({
+        "Date": df["Date"],
+        "Symbol": symbol,
+        "Open": df["Open"],
+        "High": df["High"],
+        "Low": df["Low"],
+        "Close": df["Close"],
+        "Volume": df["Volume"]
+    })
+    df = df_clean.sort_values("Date").reset_index(drop=True)
     return df
 
 
 
 # -----------------------------
-# Retry Wrapper for Reliability
+# Retry Wrapper
 # -----------------------------
-def scrape_with_retry(symbol, last_date=None, max_retries=2):
+def scrape_with_retry(symbol, last_date=None, max_retries=3):
     for attempt in range(1, max_retries + 1):
         df = scrape_merolagani(symbol, last_date)
         if not df.empty:
@@ -544,6 +535,35 @@ def update_csv(symbol: str):
         return {"message": "No new data scraped", "file": file_path, "rows": len(df_old)}
 
     df = pd.concat([df_old, df_new], ignore_index=True) if not df_old.empty else df_new
+    # df = df.drop_duplicates(subset=["Date"], keep="last").sort_values("Date").reset_index(drop=True)
+    # df.to_csv(file_path, index=False)
+# --- Force correct column layout & remove extra scraped fields ---
+
+    expected_cols = ["Date", "Symbol", "Open", "High", "Low", "Close", "Volume"]
+
+    # Convert any CSV with extra columns back to clean shape
+    df = df.loc[:, [col for col in df.columns if col in expected_cols]]
+
+    # Ensure correct column order
+    df = df.reindex(columns=expected_cols)
+    # Ensure Symbol is always correct
+    df["Symbol"] = symbol
+    # Convert volume & prices into proper numeric format
+    for col in ["Open", "High", "Low", "Close", "Volume"]:
+        df[col] = (
+            df[col]
+            .astype(str)
+            .str.replace(",", "", regex=False)
+            .str.strip()
+        )
+
+    df["Open"] = df["Open"].astype(float)
+    df["High"] = df["High"].astype(float)
+    df["Low"] = df["Low"].astype(float)
+    df["Close"] = df["Close"].astype(float)
+    df["Volume"] = df["Volume"].astype(int)
+
+    # Final ordering & save
     df = df.drop_duplicates(subset=["Date"], keep="last").sort_values("Date").reset_index(drop=True)
     df.to_csv(file_path, index=False)
 
