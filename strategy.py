@@ -149,7 +149,37 @@ class Strategy:
         self.df.columns = self.df.columns.str.strip()  # fix BOM
         self.df.set_index("Date", inplace=True)
 
+    def silhouette_score(self, prices, labels):
+        """
+        Compute silhouette score manually for 1D data.
+        """
+        n = len(prices)
+        unique_clusters = list(set(labels))
+        if len(unique_clusters) < 2:
+            return 0  # silhouette undefined for single cluster
 
+        # Convert to numpy for easier math
+        prices = np.array(prices)
+        labels = np.array(labels)
+
+        sil_scores = []
+        for i in range(n):
+            same_cluster = prices[labels == labels[i]]
+            other_clusters = [prices[labels == c] for c in unique_clusters if c != labels[i]]
+
+            # a = mean intra-cluster distance
+            if len(same_cluster) > 1:
+                a = np.mean(np.abs(same_cluster - prices[i]))
+            else:
+                a = 0
+
+            # b = min mean distance to other clusters
+            b = np.min([np.mean(np.abs(other - prices[i])) for other in other_clusters])
+
+            s = (b - a) / max(a, b) if max(a, b) != 0 else 0
+            sil_scores.append(s)
+
+        return np.mean(sil_scores)
     def kmeans_clustering(self, df, n_clusters=6, random_state=42):
         random.seed(random_state)
 
@@ -161,7 +191,7 @@ class Strategy:
         centroids = random.sample(prices, n_clusters)
 
         for _ in range(100):  # max 100 iterations
-            # Step 3: Assign each price to the nearest centroid
+            # Step 3: Assign each price to nearest centroid
             clusters = [[] for _ in range(n_clusters)]
             for p in prices:
                 distances = [abs(p - c) for c in centroids]
@@ -174,23 +204,27 @@ class Strategy:
                 if cluster:
                     new_centroids.append(sum(cluster) / len(cluster))
                 else:
-                    # handle empty cluster
-                    new_centroids.append(random.choice(prices))
+                    new_centroids.append(random.choice(prices))  # avoid empty
 
             # Step 5: Check convergence
             if all(abs(c - nc) < 1e-4 for c, nc in zip(centroids, new_centroids)):
                 break
-
             centroids = new_centroids
 
-        # Step 6: Sort and filter similar centroids 
+        # Step 6: Sort and filter similar centroids
         centers = sorted(centroids)
         filtered = [centers[0]]
         for c in centers[1:]:
-            if abs(c - filtered[-1]) / filtered[-1] > 0.01:  # 1% difference filter
+            if abs(c - filtered[-1]) / filtered[-1] > 0.01:  # 1% diff
                 filtered.append(c)
 
-        return filtered
+        # ✅ Return both filtered centers and cluster assignments
+        labels = []
+        for p in prices:
+            distances = [abs(p - c) for c in centroids]
+            labels.append(distances.index(min(distances)))
+
+        return filtered, labels, prices
 
     def run(self, start_date=None, end_date=None):
         df = self.df.copy()
@@ -203,7 +237,8 @@ class Strategy:
         if df.empty:
             raise ValueError("No data available for selected date range.")
 
-        sr_levels = self.kmeans_clustering(df)
+        sr_levels, labels, prices = self.kmeans_clustering(df)
+        silhouette = self.silhouette_score(prices, labels)  
         current_price = df["Close"].iloc[-1]
 
         supports = [lvl for lvl in sr_levels if lvl < current_price]
