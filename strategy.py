@@ -141,6 +141,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from sklearn.cluster import KMeans
 import plotly.io as pio
+import random
 
 class Strategy:
     def __init__(self, df):
@@ -148,17 +149,45 @@ class Strategy:
         self.df.columns = self.df.columns.str.strip()  # fix BOM
         self.df.set_index("Date", inplace=True)
 
-    def kmeans_clustering(self, n_clusters=6, random_state=42):
-        self.df["avg_price"] = (self.df["High"] + self.df["Low"] + self.df["Close"]) / 3.0
-        prices = self.df["avg_price"].values.reshape(-1, 1)
 
-        kmeans = KMeans(n_clusters=n_clusters, random_state=random_state)
-        centers = sorted(kmeans.fit(prices).cluster_centers_.flatten())
+    def kmeans_clustering(self, df, n_clusters=6, random_state=42):
+        random.seed(random_state)
 
-        # remove clusters too close (<1%)
+        # Step 1: Calculate average price
+        df["avg_price"] = (df["High"] + df["Low"] + df["Close"]) / 3.0
+        prices = df["avg_price"].values.tolist()  # convert to list
+
+        # Step 2: Initialize centroids randomly
+        centroids = random.sample(prices, n_clusters)
+
+        for _ in range(100):  # max 100 iterations
+            # Step 3: Assign each price to the nearest centroid
+            clusters = [[] for _ in range(n_clusters)]
+            for p in prices:
+                distances = [abs(p - c) for c in centroids]
+                nearest_index = distances.index(min(distances))
+                clusters[nearest_index].append(p)
+
+            # Step 4: Compute new centroids
+            new_centroids = []
+            for cluster in clusters:
+                if cluster:
+                    new_centroids.append(sum(cluster) / len(cluster))
+                else:
+                    # handle empty cluster
+                    new_centroids.append(random.choice(prices))
+
+            # Step 5: Check convergence
+            if all(abs(c - nc) < 1e-4 for c, nc in zip(centroids, new_centroids)):
+                break
+
+            centroids = new_centroids
+
+        # Step 6: Sort and filter similar centroids 
+        centers = sorted(centroids)
         filtered = [centers[0]]
         for c in centers[1:]:
-            if abs(c - filtered[-1]) / filtered[-1] > 0.01:
+            if abs(c - filtered[-1]) / filtered[-1] > 0.01:  # 1% difference filter
                 filtered.append(c)
 
         return filtered
@@ -174,7 +203,7 @@ class Strategy:
         if df.empty:
             raise ValueError("No data available for selected date range.")
 
-        sr_levels = self.kmeans_clustering()
+        sr_levels = self.kmeans_clustering(df)
         current_price = df["Close"].iloc[-1]
 
         supports = [lvl for lvl in sr_levels if lvl < current_price]
