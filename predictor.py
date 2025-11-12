@@ -17,7 +17,7 @@ from sklearn.preprocessing import MinMaxScaler
 import pickle
 import os
 import hashlib
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import json
 import shutil
 
@@ -37,7 +37,7 @@ class ModelCache:
     def cleanup_old_cache(self):
         """Remove cache files from previous days"""
         today = date.today().isoformat()
-        
+        # today = (date.today() + timedelta(days=1)).isoformat()
         if not os.path.exists(self.cache_dir):
             return
         for filename in os.listdir(self.cache_dir):
@@ -398,7 +398,7 @@ class MarketPredictor:
             
             print(f"Training with batch_size={batch_size}, epochs={epochs}, early stopping patience={patience}")
             
-            # Train generator with validation split and error handling
+            # Train gan with validation split and error handling
             training_successful = False
             try:
                 history = generator.fit(
